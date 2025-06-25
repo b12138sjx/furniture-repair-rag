@@ -6,7 +6,7 @@
         <el-input v-model="url" placeholder="请输入要采集的网址" style="width: 320px;" />
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" @click="collect">开始采集</el-button>
+        <el-button class="wood-btn" type="primary" @click="collect">开始采集</el-button>
       </el-form-item>
     </el-form>
     <el-divider />
@@ -48,5 +48,22 @@ function collect() {
   padding: 40px 32px;
   min-width: 320px;
   text-align: center;
+}
+.wood-btn {
+  background: linear-gradient(180deg, #b08968 0%, #a1744a 100%) !important;
+  border: 1.5px solid #a1744a !important;
+  color: #fff !important;
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #b0896833;
+  padding: 8px 22px;
+  letter-spacing: 1px;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.wood-btn:hover, .wood-btn:focus {
+  background: linear-gradient(180deg, #a1744a 0%, #b08968 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 16px #b0896844;
+  border-color: #8c6239 !important;
 }
 </style>

@@ -7,7 +7,7 @@
       style="margin-bottom: 18px;"
       clearable
     />
-    <el-button type="primary" @click="ask" style="margin-bottom: 18px;">提问</el-button>
+    <el-button class="wood-btn"  type="primary" @click="ask" style="margin-bottom: 18px;">提问</el-button>
     <el-divider />
     <div v-if="answer" class="qa-answer">
       <el-alert title="回答" type="success" :closable="false" show-icon>
@@ -40,5 +40,22 @@ function ask() {
 .qa-answer {
   margin-top: 16px;
   color: #5c4033;
+}
+.wood-btn {
+  background: linear-gradient(180deg, #b08968 0%, #a1744a 100%) !important;
+  border: 1.5px solid #a1744a !important;
+  color: #fff !important;
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #b0896833;
+  padding: 8px 22px;
+  letter-spacing: 1px;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.wood-btn:hover, .wood-btn:focus {
+  background: linear-gradient(180deg, #a1744a 0%, #b08968 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 16px #b0896844;
+  border-color: #8c6239 !important;
 }
 </style>

@@ -4,7 +4,7 @@
     <p style="margin: 24px 0 32px 0; color: #7c5b3a;">
       上传、管理你的家具维修文档，丰富你的DIY知识库。
     </p>
-    <el-button type="primary" disabled>上传文档（开发中）</el-button>
+    <el-button class="wood-btn"  type="primary" disabled>上传文档（开发中）</el-button>
     <el-divider />
     <el-table :data="kbList" style="width: 100%; margin-top: 16px;" border>
       <el-table-column prop="name" label="知识库名称" />
@@ -38,5 +38,22 @@ const kbList = ref([
   padding: 40px 32px;
   min-width: 320px;
   text-align: center;
+}
+.wood-btn {
+  background: linear-gradient(180deg, #b08968 0%, #a1744a 100%) !important;
+  border: 1.5px solid #a1744a !important;
+  color: #fff !important;
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #b0896833;
+  padding: 8px 22px;
+  letter-spacing: 1px;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.wood-btn:hover, .wood-btn:focus {
+  background: linear-gradient(180deg, #a1744a 0%, #b08968 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 16px #b0896844;
+  border-color: #8c6239 !important;
 }
 </style>

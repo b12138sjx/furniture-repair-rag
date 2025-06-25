@@ -57,6 +57,23 @@ button:focus-visible {
 .card {
   padding: 2em;
 }
+.wood-btn {
+  background: linear-gradient(180deg, #b08968 0%, #a1744a 100%) !important;
+  border: 1.5px solid #a1744a !important;
+  color: #fff !important;
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #b0896833;
+  padding: 8px 22px;
+  letter-spacing: 1px;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.wood-btn:hover, .wood-btn:focus {
+  background: linear-gradient(180deg, #a1744a 0%, #b08968 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 16px #b0896844;
+  border-color: #8c6239 !important;
+}
 
 #app {
   max-width: 1280px;
