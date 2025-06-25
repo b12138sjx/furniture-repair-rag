@@ -4,7 +4,40 @@
     <p style="margin: 24px 0 32px 0; color: #7c5b3a;">
       上传、管理你的家具维修文档，丰富你的DIY知识库。
     </p>
-    <el-button class="wood-btn"  type="primary" disabled>上传文档（开发中）</el-button>
+    
+    <!-- 文件上传 -->
+    <el-upload
+      ref="uploadRef"
+      :before-upload="handleUpload"
+      :show-file-list="false"
+      accept=".pdf,.txt,.md,.doc,.docx"
+      style="margin-bottom: 18px;"
+    >
+      <el-button class="wood-btn" type="primary" :loading="uploading">
+        {{ uploading ? '上传中...' : '上传文档' }}
+      </el-button>
+    </el-upload>
+    
+    <!-- 错误提示 -->
+    <el-alert 
+      v-if="error" 
+      :title="error" 
+      type="error" 
+      :closable="true"
+      @close="error = ''"
+      style="margin-bottom: 16px;"
+    />
+    
+    <!-- 成功提示 -->
+    <el-alert 
+      v-if="successMessage" 
+      :title="successMessage" 
+      type="success" 
+      :closable="true"
+      @close="successMessage = ''"
+      style="margin-bottom: 16px;"
+    />
+    
     <el-divider />
     <el-table :data="kbList" style="width: 100%; margin-top: 16px;" border>
       <el-table-column prop="name" label="知识库名称" />
@@ -22,11 +55,46 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { uploadFile } from '../services/api'
+import type { UploadResponse } from '../services/api'
+
+const uploading = ref(false)
+const error = ref('')
+const successMessage = ref('')
+
 const kbList = ref([
   { name: '家具维修知识库', count: 120, status: 'done' },
   { name: '沙发保养', count: 45, status: 'processing' },
   { name: '地板修复', count: 30, status: 'none' }
 ])
+
+async function handleUpload(file: File) {
+  if (file.size > 10 * 1024 * 1024) { // 10MB限制
+    error.value = '文件大小不能超过10MB'
+    return false
+  }
+  
+  uploading.value = true
+  error.value = ''
+  successMessage.value = ''
+  
+  try {
+    const response: UploadResponse = await uploadFile(file)
+    if (response.success) {
+      successMessage.value = response.message
+      // 更新知识库列表
+      kbList.value[0].count += 1
+    } else {
+      error.value = response.message || '上传失败'
+    }
+  } catch (err: any) {
+    error.value = err.message || '上传失败，请检查后端服务是否正常运行'
+  } finally {
+    uploading.value = false
+  }
+  
+  return false // 阻止默认上传行为
+}
 </script>
 
 <style scoped>

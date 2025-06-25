@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: furniture-repair-rag
+Version: 0.1
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: langchain
+Requires-Dist: python-multipart
+Requires-Dist: pydantic
+Dynamic: requires-dist
