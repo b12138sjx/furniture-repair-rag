@@ -1,38 +1,8 @@
 <template>
-  <el-card>
+  <el-card class="wood-card">
     <h2>知识库管理</h2>
-    <el-button type="primary" @click="refresh">刷新</el-button>
-    <el-table :data="kbList" style="width: 100%; margin-top: 16px;">
-      <el-table-column prop="name" label="名称" />
-      <el-table-column prop="count" label="条目数" width="100" />
-      <el-table-column prop="status" label="向量化状态" width="120">
-        <template #default="scope">
-          <el-tag v-if="scope.row.status==='done'" type="success">已完成</el-tag>
-          <el-tag v-else-if="scope.row.status==='processing'" type="warning">处理中</el-tag>
-          <el-tag v-else type="info">未开始</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="220">
-        <template #default="scope">
-          <el-button size="small" @click="viewDetail(scope.row)">详情</el-button>
-          <el-button size="small" @click="startVectorize(scope.row)" :loading="scope.row.status==='processing'">向量化</el-button>
-          <el-button size="small" type="danger" @click="remove(scope.row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-dialog v-model="showDetail" title="知识库详情">
-      <el-table :data="detailChunks" style="width: 100%">
-        <el-table-column prop="index" label="块编号" width="80" />
-        <el-table-column prop="content" label="内容" />
-        <el-table-column prop="meta" label="元数据" />
-      </el-table>
-    </el-dialog>
-    <el-dialog v-model="showVectorize" title="向量化进度" width="400px">
-      <el-progress :percentage="vectorizeProgress" />
-      <div v-if="vectorizeStatus" style="margin-top: 12px;">
-        <el-alert :title="vectorizeStatus" type="success" v-if="vectorizeProgress===100" />
-      </div>
-    </el-dialog>
+    <p>这里可以上传、管理家具维修相关文档。</p>
+    <!-- 可扩展上传、列表等功能 -->
   </el-card>
 </template>
 
