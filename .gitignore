@@ -1,0 +1,19 @@
+# 环境变量
+.env
+
+# 后端 Python 缓存
+__pycache__/
+*.pyc
+
+# 前端依赖
+node_modules/
+
+# 数据存储
+/data/raw/
+/data/processed/
+
+# 模型文件
+/models/llm_weights/
+
+# 日志文件
+*.log

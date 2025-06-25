@@ -1,0 +1,5 @@
+import os
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+HUGGINGFACEHUB_API_TOKEN = os.getenv('HUGGINGFACEHUB_API_TOKEN')
+# 其他大模型 API 密钥可按需添加
