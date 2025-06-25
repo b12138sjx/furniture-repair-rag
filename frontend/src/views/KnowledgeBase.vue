@@ -1,54 +1,42 @@
 <template>
-  <el-card class="wood-card">
+  <el-card class="wood-card" style="width: 100%; max-width: 600px;">
     <h2>知识库管理</h2>
-    <p>这里可以上传、管理家具维修相关文档。</p>
-    <!-- 可扩展上传、列表等功能 -->
+    <p style="margin: 24px 0 32px 0; color: #7c5b3a;">
+      上传、管理你的家具维修文档，丰富你的DIY知识库。
+    </p>
+    <el-button type="primary" disabled>上传文档（开发中）</el-button>
+    <el-divider />
+    <el-table :data="kbList" style="width: 100%; margin-top: 16px;" border>
+      <el-table-column prop="name" label="知识库名称" />
+      <el-table-column prop="count" label="文档数" width="90" />
+      <el-table-column prop="status" label="状态" width="100">
+        <template #default="{ row }">
+          <el-tag :type="row.status === 'done' ? 'success' : row.status === 'processing' ? 'warning' : 'info'">
+            {{ row.status === 'done' ? '已完成' : row.status === 'processing' ? '处理中' : '未处理' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+    </el-table>
   </el-card>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { ElMessage } from 'element-plus';
-
+import { ref } from 'vue'
 const kbList = ref([
   { name: '家具维修知识库', count: 120, status: 'done' },
   { name: '沙发保养', count: 45, status: 'processing' },
   { name: '地板修复', count: 30, status: 'none' }
-]);
-const showDetail = ref(false);
-const detailChunks = ref<any[]>([]);
-const showVectorize = ref(false);
-const vectorizeProgress = ref(0);
-const vectorizeStatus = ref('');
-function refresh() {
-  // ...实际应请求后端获取知识库列表...
-  ElMessage.success('已刷新');
-}
-function viewDetail(row: any) {
-  // ...实际应请求后端获取详情...
-  detailChunks.value = [
-    { index: 1, content: '块内容示例1', meta: '来源A, 摘要...' },
-    { index: 2, content: '块内容示例2', meta: '来源B, 摘要...' }
-  ];
-  showDetail.value = true;
-}
-function remove(row: any) {
-  kbList.value = kbList.value.filter(item => item !== row);
-  ElMessage.success('已删除');
-}
-function startVectorize(row: any) {
-  showVectorize.value = true;
-  vectorizeProgress.value = 0;
-  vectorizeStatus.value = '';
-  row.status = 'processing';
-  let timer = setInterval(() => {
-    if (vectorizeProgress.value < 100) {
-      vectorizeProgress.value += 20;
-    } else {
-      clearInterval(timer);
-      row.status = 'done';
-      vectorizeStatus.value = '向量化完成';
-    }
-  }, 400);
-}
+])
 </script>
+
+<style scoped>
+.wood-card {
+  background: #f5e9da;
+  border: 1px solid #c8ad7f;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px #c8ad7f33;
+  padding: 40px 32px;
+  min-width: 320px;
+  text-align: center;
+}
+</style>
