@@ -24,7 +24,7 @@ const router = useRouter()
       <router-view />
     </main>
     <footer class="ifixit-footer">
-      <span>© 2024 diy家具维修</span>
+      <span>© 2025 diy家具维修rag </span>
     </footer>
     <el-dialog v-model="dialogVisible" title="关于本系统" width="400px">
       <span>
@@ -105,6 +105,7 @@ const router = useRouter()
   color: #b08968;
   text-align: center;
   padding: 16px 0 10px 0;
+  height: 40px;
   font-size: 15px;
   letter-spacing: 1px;
   border-top: 1.5px solid #e4d4c8;
