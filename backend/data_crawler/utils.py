@@ -32,7 +32,7 @@ def normalize_url(url, base_domain):
     if not url.startswith("http"):
         url = base_domain + url
     if "lang=" not in url:
-        url += "?lang=zh"
+        url += "?lang=en"
     return url
 
 

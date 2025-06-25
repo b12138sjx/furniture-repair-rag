@@ -69,7 +69,7 @@ class FurnitureCrawler:
             if self.is_valid_save_url(href):
                 url = self.base_domain + href
                 if "lang=" not in url:
-                    url += "?lang=zh"
+                    url += "?lang=en"
                 self.saved_links.add(url)
             else:
                 self.crawl_page(href)

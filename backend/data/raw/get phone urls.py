@@ -77,7 +77,7 @@ def crawl_page(path):
         if is_valid_save_url(href):
             url = BASE_DOMAIN + href
             if "lang=" not in url:
-                url += "?lang=zh"
+                url += "?lang=en"
             saved_links.add(url)
         else:
             crawl_page(href)
