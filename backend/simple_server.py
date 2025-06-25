@@ -20,11 +20,21 @@ app.add_middleware(
 )
 
 # 数据模型
+class QARequest(BaseModel):
+    query: str
+    answer_mode: str = "auto"  # auto, llm_only, kb_only
+    model: str = "gpt-3.5-turbo"
+    temperature: float = 0.7
+    context_size: int = 3
+
 class QAResponse(BaseModel):
     answer: str
     sources: Optional[List[str]] = None
     confidence: Optional[float] = None
     related_questions: Optional[List[str]] = []
+    model_used: Optional[str] = None
+    answer_mode: str = "auto"
+    processing_time: Optional[float] = None
 
 class UploadResponse(BaseModel):
     success: bool
@@ -38,6 +48,41 @@ class ChatHistory(BaseModel):
     question: str
     answer: str
     timestamp: str
+
+# 新增模型配置
+class ModelConfig(BaseModel):
+    model_name: str
+    temperature: float = 0.7
+    max_tokens: int = 1000
+
+# 支持的模型列表
+SUPPORTED_MODELS = {
+    "gpt-3.5-turbo": {
+        "name": "GPT-3.5 Turbo",
+        "provider": "OpenAI",
+        "description": "快速、高效的对话模型"
+    },
+    "gpt-4": {
+        "name": "GPT-4",
+        "provider": "OpenAI", 
+        "description": "更强大的理解和推理能力"
+    },
+    "chatglm_std": {
+        "name": "ChatGLM 标准版",
+        "provider": "智谱AI",
+        "description": "中文优化的对话模型"
+    },
+    "chatglm_pro": {
+        "name": "ChatGLM Pro",
+        "provider": "智谱AI",
+        "description": "专业级中文对话模型"
+    },
+    "ERNIE-Bot": {
+        "name": "文心一言",
+        "provider": "百度",
+        "description": "百度自研的大语言模型"
+    }
+}
 
 # 全局变量存储知识库和对话历史
 knowledge_base = []
@@ -526,20 +571,261 @@ def create_comprehensive_sample_data():
     
     print(f"✅ 创建了 {len(sample_data)} 条示例维修数据")
 
+def get_available_models():
+    """获取可用的模型列表"""
+    try:
+        # 这里可以添加模型可用性检查逻辑
+        # 例如检查API密钥是否配置等
+        available = []
+        for model_id, info in SUPPORTED_MODELS.items():
+            # 简单检查 - 实际项目中应该检查API密钥等
+            available.append({
+                "id": model_id,
+                "name": info["name"],
+                "provider": info["provider"],
+                "description": info["description"],
+                "available": True  # 这里应该是真实的可用性检查
+            })
+        return available
+    except Exception as e:
+        print(f"检查模型可用性失败: {e}")
+        return []
+
+def call_llm_model(model_name: str, prompt: str, temperature: float = 0.7) -> str:
+    """调用指定的大语言模型"""
+    try:
+        # 这里集成你现有的模型调用代码
+        # 根据model_name选择不同的模型接口
+        
+        if model_name.startswith("gpt-"):
+            # OpenAI模型调用
+            return call_openai_model(model_name, prompt, temperature)
+        elif model_name.startswith("chatglm"):
+            # 智谱AI模型调用
+            return call_zhipu_model(model_name, prompt, temperature)
+        elif model_name.startswith("ERNIE"):
+            # 百度文心模型调用
+            return call_wenxin_model(model_name, prompt, temperature)
+        else:
+            # 默认使用模拟回复
+            return generate_mock_response(prompt)
+            
+    except Exception as e:
+        print(f"模型调用失败: {e}")
+        return f"抱歉，模型调用出现问题：{str(e)}"
+
+def call_openai_model(model_name: str, prompt: str, temperature: float) -> str:
+    """调用OpenAI模型"""
+    try:
+        # 这里应该使用你现有的OpenAI调用代码
+        # import openai
+        # response = openai.ChatCompletion.create(...)
+        return f"[OpenAI {model_name}] 这是一个模拟回复：{prompt[:50]}..."
+    except Exception as e:
+        raise Exception(f"OpenAI模型调用失败: {e}")
+
+def call_zhipu_model(model_name: str, prompt: str, temperature: float) -> str:
+    """调用智谱AI模型"""
+    try:
+        # 这里应该使用你现有的智谱AI调用代码
+        return f"[智谱AI {model_name}] 这是一个模拟回复：{prompt[:50]}..."
+    except Exception as e:
+        raise Exception(f"智谱AI模型调用失败: {e}")
+
+def call_wenxin_model(model_name: str, prompt: str, temperature: float) -> str:
+    """调用百度文心模型"""
+    try:
+        # 这里应该使用你现有的文心模型调用代码
+        return f"[百度文心 {model_name}] 这是一个模拟回复：{prompt[:50]}..."
+    except Exception as e:
+        raise Exception(f"文心模型调用失败: {e}")
+
+def generate_mock_response(prompt: str) -> str:
+    """生成模拟回复"""
+    return f"这是一个模拟的AI回复，针对您的问题：{prompt[:100]}..."
+
+def generate_llm_only_answer(query: str, model_name: str = "gpt-3.5-turbo", temperature: float = 0.7) -> str:
+    """仅使用大模型回答，不依赖知识库"""
+    prompt = f"""你是一个专业的维修助手。用户问题：{query}
+
+请基于你的训练知识回答这个维修问题。如果是关于设备维修的问题，请提供：
+1. 问题可能的原因分析
+2. 详细的解决步骤
+3. 所需工具和注意事项
+4. 预防措施建议
+
+如果不是维修相关问题，请礼貌地引导用户提问维修相关问题。
+
+回答要专业、详细、实用。"""
+
+    try:
+        response = call_llm_model(model_name, prompt, temperature)
+        return response
+    except Exception as e:
+        return f"大模型调用失败：{str(e)}。请稍后重试或联系技术支持。"
+
+def generate_kb_only_answer(query: str, contexts: List[dict]) -> str:
+    """仅基于知识库回答，不使用大模型"""
+    if not contexts:
+        return "抱歉，在知识库中没有找到与您问题相关的信息。建议您：\n1. 尝试使用不同的关键词重新提问\n2. 选择'大模型回答'获取AI的建议\n3. 上传相关的维修文档到知识库"
+    
+    answer_parts = []
+    answer_parts.append(f"根据知识库检索，找到以下相关信息：\n")
+    
+    for i, context in enumerate(contexts[:2], 1):
+        content = context['content']
+        title = context.get('title', '维修指南')
+        
+        answer_parts.append(f"📋 **参考资料 {i}：{title}**\n")
+        
+        if isinstance(content, dict):
+            # 结构化内容
+            if content.get('steps'):
+                answer_parts.append("🔧 **维修步骤：**")
+                for j, step in enumerate(content['steps'][:4], 1):
+                    answer_parts.append(f"   {j}. {step}")
+                answer_parts.append("")
+            
+            if content.get('tools'):
+                tools_str = "、".join(content['tools'][:5])
+                answer_parts.append(f"🛠️ **所需工具：** {tools_str}\n")
+            
+            if content.get('warnings'):
+                answer_parts.append("⚠️ **注意事项：**")
+                for warning in content['warnings'][:2]:
+                    answer_parts.append(f"   • {warning}")
+                answer_parts.append("")
+        else:
+            # 纯文本内容
+            lines = content.split('\n')[:8]
+            for line in lines:
+                if line.strip():
+                    answer_parts.append(f"   {line.strip()}")
+            answer_parts.append("")
+    
+    answer_parts.append("💡 **提示：** 以上信息来自知识库文档，建议结合实际情况操作。")
+    
+    return "\n".join(answer_parts)
+
+def generate_auto_answer(query: str, contexts: List[dict], model_name: str = "gpt-3.5-turbo", temperature: float = 0.7) -> str:
+    """智能选择回答模式"""
+    if not contexts:
+        # 没有相关知识库内容，使用大模型
+        return generate_llm_only_answer(query, model_name, temperature)
+    else:
+        # 有知识库内容，结合知识库和大模型
+        return generate_enhanced_answer(query, contexts, model_name, temperature)
+
+@app.post("/api/v1/qa", response_model=QAResponse)
+async def get_answer_v2(request: QARequest):
+    """增强版问答接口，支持多种回答模式"""
+    import time
+    start_time = time.time()
+    
+    try:
+        answer = ""
+        sources = []
+        confidence = 0.5
+        contexts = []
+        
+        # 根据回答模式处理
+        if request.answer_mode == "llm_only":
+            # 仅使用大模型
+            answer = generate_llm_only_answer(request.query, request.model, request.temperature)
+            confidence = 0.8
+            
+        elif request.answer_mode == "kb_only":
+            # 仅使用知识库
+            contexts = enhanced_search(request.query, request.context_size)
+            answer = generate_kb_only_answer(request.query, contexts)
+            sources = [ctx.get('url', '内部知识库') for ctx in contexts]
+            confidence = 0.9 if contexts else 0.3
+            
+        else:  # auto
+            # 智能选择模式
+            contexts = enhanced_search(request.query, request.context_size)
+            answer = generate_auto_answer(request.query, contexts, request.model, request.temperature)
+            sources = [ctx.get('url', '内部知识库') for ctx in contexts]
+            confidence = 0.9 if contexts else 0.8
+        
+        # 生成相关问题
+        related_questions = generate_related_questions(request.query, contexts)
+        
+        # 保存对话历史
+        from datetime import datetime
+        chat_history.append({
+            'question': request.query,
+            'answer': answer,
+            'model': request.model,
+            'answer_mode': request.answer_mode,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+        processing_time = time.time() - start_time
+        
+        return QAResponse(
+            answer=answer,
+            sources=sources,
+            confidence=confidence,
+            related_questions=related_questions,
+            model_used=request.model,
+            answer_mode=request.answer_mode,
+            processing_time=round(processing_time, 2)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"问答处理失败: {str(e)}")
+
+# 保持兼容性的旧接口
+@app.get("/api/v1/qa")
+async def get_answer_legacy(
+    query: str = Query(..., description="用户的问题"),
+    context_size: int = Query(3, description="返回的相关上下文数量"),
+    model: str = Query("gpt-3.5-turbo", description="使用的模型"),
+    temperature: float = Query(0.7, description="模型温度参数"),
+    answer_mode: str = Query("auto", description="回答模式")
+):
+    """兼容旧版本的GET接口"""
+    request = QARequest(
+        query=query,
+        answer_mode=answer_mode,
+        model=model,
+        temperature=temperature,
+        context_size=context_size
+    )
+    return await get_answer_v2(request)
+
 # 启动时加载知识库
 @app.on_event("startup")
 async def startup_event():
     load_knowledge_base()
 
 # API端点
+@app.get("/api/v1/models")
+async def get_models():
+    """获取可用的模型列表"""
+    try:
+        models = get_available_models()
+        return {
+            "models": models,
+            "default": "gpt-3.5-turbo"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/v1/qa")
-async def get_answer(query: str = Query(...), context_size: int = Query(3)):
+async def get_answer(
+    query: str = Query(..., description="用户的问题"),
+    context_size: int = Query(3, description="返回的相关上下文数量"),
+    model: str = Query("gpt-3.5-turbo", description="使用的模型"),
+    temperature: float = Query(0.7, description="模型温度参数")
+):
     try:
         # 搜索相关内容
         contexts = enhanced_search(query, context_size)
         
-        # 生成回答
-        answer = generate_detailed_answer(query, contexts)
+        # 使用指定模型生成回答
+        answer = generate_enhanced_answer(query, contexts, model, temperature)
         
         # 生成相关问题
         related_questions = generate_related_questions(query, contexts)
@@ -549,14 +835,16 @@ async def get_answer(query: str = Query(...), context_size: int = Query(3)):
         chat_history.append({
             'question': query,
             'answer': answer,
+            'model': model,
             'timestamp': datetime.now().isoformat()
         })
         
         return QAResponse(
             answer=answer,
             sources=[ctx.get('url', '内部知识库') for ctx in contexts],
-            confidence=0.8 if contexts else 0.3,
-            related_questions=related_questions
+            confidence=0.9 if contexts else 0.3,
+            related_questions=related_questions,
+            model_used=model
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -628,59 +916,90 @@ async def clear_chat_history():
 @app.get("/api/v1/knowledge/stats")
 async def get_knowledge_stats():
     """获取知识库统计信息"""
-    stats = {
-        "total_documents": len(knowledge_base),
-        "types": {},
-        "total_steps": 0,
-        "total_tools": set(),
-        "total_warnings": 0
-    }
-    
-    for item in knowledge_base:
-        doc_type = item.get('type', 'unknown')
-        stats['types'][doc_type] = stats['types'].get(doc_type, 0) + 1
-        
-        if isinstance(item['content'], dict):
-            stats['total_steps'] += len(item['content'].get('steps', []))
-            stats['total_tools'].update(item['content'].get('tools', []))
-            stats['total_warnings'] += len(item['content'].get('warnings', []))
-    
-    stats['total_tools'] = len(stats['total_tools'])
-    return stats
-
-@app.get("/api/v1/crawler/status")
-async def get_crawler_status():
-    """获取爬虫状态"""
-    return {
-        "status": "ready",
-        "message": "爬虫服务正常运行",
-        "active_tasks": 0,
-        "total_crawled": len(knowledge_base)
-    }
-
-@app.get("/api/v1/crawl")
-async def get_crawl_info():
-    """获取爬虫信息 - GET方法"""
-    return {
-        "message": "请使用POST方法提交爬虫任务",
-        "endpoint": "/api/v1/collect",
-        "method": "POST",
-        "example": {
-            "url": "https://example.com"
+    try:
+        stats = {
+            "total_documents": len(knowledge_base),
+            "types": {},
+            "total_steps": 0,
+            "total_tools": set(),
+            "total_warnings": 0
         }
-    }
+        
+        for item in knowledge_base:
+            doc_type = item.get('type', 'unknown')
+            stats['types'][doc_type] = stats['types'].get(doc_type, 0) + 1
+            
+            if isinstance(item['content'], dict):
+                stats['total_steps'] += len(item['content'].get('steps', []))
+                stats['total_tools'].update(item['content'].get('tools', []))
+                stats['total_warnings'] += len(item['content'].get('warnings', []))
+        
+        stats['total_tools'] = len(stats['total_tools'])
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/knowledge/recent")
+async def get_recent_activity(limit: int = Query(10)):
+    """获取最近的知识库活动"""
+    try:
+        # 模拟最近活动数据
+        recent_activities = []
+        
+        # 从knowledge_base获取最近添加的文档
+        for i, item in enumerate(knowledge_base[-limit:]):
+            activity = {
+                "type": "upload" if "user_upload" in item.get('type', '') else "collect",
+                "title": item.get('title', f'文档 {i+1}')[:50],
+                "time": "刚刚" if i < 3 else f"{i*2}分钟前",
+                "status": "success",
+                "url": item.get('url', ''),
+                "doc_type": item.get('type', 'unknown')
+            }
+            recent_activities.append(activity)
+        
+        return {"activities": recent_activities}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/crawl")
 async def start_crawl(request: CollectRequest):
-    """启动爬虫任务 - POST方法"""
+    """启动爬虫任务 - 增强版"""
     try:
-        # 模拟爬虫任务
-        return {
+        # 验证URL
+        if not request.url.startswith(('http://', 'https://')):
+            raise HTTPException(status_code=400, detail="无效的URL格式")
+        
+        # 模拟爬虫处理
+        task_id = f"task_{len(knowledge_base) + 1}_{int(time.time())}"
+        
+        # 这里可以集成真实的爬虫逻辑
+        # 暂时返回模拟响应
+        response = {
             "success": True,
-            "message": f"开始爬取: {request.url}",
-            "task_id": f"task_{len(knowledge_base) + 1}",
-            "status": "started"
+            "message": f"成功启动采集任务",
+            "task_id": task_id,
+            "status": "started",
+            "url": request.url,
+            "estimated_time": "预计2-5分钟完成"
         }
+        
+        # 模拟添加到知识库（实际应该在爬虫完成后）
+        simulated_doc = {
+            'content': {
+                'summary': f"从 {request.url} 采集的维修指南",
+                'steps': [f"步骤1: 从{request.url}采集到的内容"],
+                'tools': ['爬虫工具'],
+                'warnings': ['请验证采集内容的准确性']
+            },
+            'title': f"采集自 {request.url}",
+            'url': request.url,
+            'type': 'web_crawl',
+            'keywords': ['采集', '在线资源']
+        }
+        knowledge_base.append(simulated_doc)
+        
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

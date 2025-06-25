@@ -1,170 +1,376 @@
 <template>
   <div class="qa-container">
-    <el-card class="wood-card qa-main-card">
-      <h2>🔧 家具维修智能助手</h2>
-      <p class="subtitle">基于AI的专业维修知识问答系统</p>
-      
-      <!-- 快捷问题 -->
-      <div class="quick-questions" v-if="!loading && !answer">
-        <h4>💡 热门问题</h4>
-        <div class="question-tags">
-          <el-tag 
-            v-for="q in quickQuestions" 
-            :key="q"
-            @click="askQuickQuestion(q)"
-            class="quick-tag"
-          >
-            {{ q }}
+    <!-- 顶部工具栏 -->
+    <div class="qa-header">
+      <div class="header-left">
+        <h2>🔧 智能问答</h2>
+        <div class="header-stats">
+          <el-tag size="small" effect="light" type="success">
+            <el-icon><Document /></el-icon>
+            {{ knowledgeInfo.total_documents }} 篇文档
+          </el-tag>
+          <el-tag size="small" effect="light" type="info">
+            <el-icon><Tools /></el-icon>
+            {{ knowledgeInfo.total_tools }} 种工具
           </el-tag>
         </div>
       </div>
-      
-      <!-- 问答区域 -->
-      <div class="qa-input-section">
-        <el-input
-          v-model="question"
-          placeholder="请输入您的维修问题，例如：如何更换iPhone电池？"
-          style="margin-bottom: 18px;"
-          clearable
-          :disabled="loading"
-          @keyup.enter="ask"
-        />
-        <el-button 
-          class="wood-btn" 
-          type="primary" 
-          @click="ask" 
-          style="margin-bottom: 18px;"
-          :loading="loading"
-          size="large"
-        >
-          {{ loading ? '分析中...' : '🔍 获取解答' }}
-        </el-button>
-      </div>
-      
-      <!-- 错误提示 -->
-      <el-alert 
-        v-if="error" 
-        :title="error" 
-        type="error" 
-        :closable="true"
-        @close="error = ''"
-        style="margin-bottom: 16px;"
-      />
-      
-      <!-- 回答区域 -->
-      <div v-if="answer" class="qa-answer">
-        <el-card class="answer-card">
-          <template #header>
-            <div class="answer-header">
-              <span>🤖 AI维修助手</span>
-              <el-rate v-model="rating" @change="submitRating" show-text />
-            </div>
-          </template>
-          
-          <div class="answer-content" v-html="formatAnswer(answer)"></div>
-          
-          <!-- 置信度 -->
-          <div v-if="confidence" class="confidence-bar">
-            <span>回答可信度：</span>
-            <el-progress 
-              :percentage="confidence * 100" 
-              :color="getConfidenceColor(confidence)"
-              :show-text="false"
-              style="width: 200px; margin-left: 10px;"
-            />
-            <span>{{ Math.round(confidence * 100) }}%</span>
-          </div>
-        </el-card>
+      <div class="header-right">
+        <!-- 回答模式选择 -->
+        <div class="control-group">
+          <label class="control-label">回答模式</label>
+          <el-select 
+            v-model="answerMode" 
+            class="control-select"
+            @change="onAnswerModeChange"
+          >
+            <el-option value="auto" label="智能模式">
+              <div class="mode-option">
+                <span class="mode-name">🧠 智能模式</span>
+                <span class="mode-desc">AI + 知识库</span>
+              </div>
+            </el-option>
+            <el-option value="llm_only" label="大模型模式">
+              <div class="mode-option">
+                <span class="mode-name">🤖 大模型模式</span>
+                <span class="mode-desc">仅使用AI回答</span>
+              </div>
+            </el-option>
+            <el-option value="kb_only" label="知识库模式">
+              <div class="mode-option">
+                <span class="mode-name">📚 知识库模式</span>
+                <span class="mode-desc">仅从文档检索</span>
+              </div>
+            </el-option>
+          </el-select>
+        </div>
         
-        <!-- 参考来源 -->
-        <el-card v-if="sources && sources.length > 0" class="sources-card">
-          <template #header>
-            <span>📚 参考来源</span>
-          </template>
-          <ul class="sources-list">
-            <li v-for="(source, index) in sources" :key="index">
-              <el-link type="primary" :href="source" target="_blank">
-                {{ source }}
-              </el-link>
-            </li>
-          </ul>
-        </el-card>
-        
-        <!-- 相关问题 -->
-        <el-card v-if="relatedQuestions && relatedQuestions.length > 0" class="related-card">
-          <template #header>
-            <span>🔗 相关问题</span>
-          </template>
-          <div class="related-questions">
-            <el-tag 
-              v-for="q in relatedQuestions" 
-              :key="q"
-              @click="askRelatedQuestion(q)"
-              class="related-tag"
-              type="info"
+        <!-- 模型选择器 -->
+        <div class="control-group" v-if="answerMode !== 'kb_only'">
+          <label class="control-label">AI模型</label>
+          <el-select 
+            v-model="selectedModel" 
+            placeholder="选择AI模型"
+            class="control-select"
+            @change="onModelChange"
+          >
+            <el-option
+              v-for="model in availableModels"
+              :key="model.id"
+              :label="model.name"
+              :value="model.id"
+              :disabled="!model.available"
             >
-              {{ q }}
-            </el-tag>
-          </div>
-        </el-card>
-      </div>
-      
-      <!-- 对话历史 -->
-      <div class="chat-history" v-if="chatHistory.length > 0">
-        <el-divider>
-          <span>📝 对话历史</span>
-          <el-button @click="clearHistory" size="small" text type="danger">
-            清空历史
-          </el-button>
-        </el-divider>
+              <div class="model-option">
+                <div class="model-info-line">
+                  <span class="model-name">{{ model.name }}</span>
+                  <el-tag size="small" :type="model.available ? 'success' : 'danger'">
+                    {{ model.available ? '可用' : '不可用' }}
+                  </el-tag>
+                </div>
+                <span class="model-provider">{{ model.provider }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </div>
         
-        <div class="history-item" v-for="(item, index) in chatHistory.slice(-3)" :key="index">
-          <div class="history-question">
-            <strong>Q: </strong>{{ item.question }}
+        <!-- 高级设置 -->
+        <el-popover placement="bottom-end" trigger="click" width="320" :show-arrow="false">
+          <template #reference>
+            <el-button class="settings-btn" circle>
+              <el-icon><Setting /></el-icon>
+            </el-button>
+          </template>
+          <div class="advanced-settings">
+            <div class="settings-header">
+              <h4>🎛️ 参数设置</h4>
+              <p>调整回答行为和质量</p>
+            </div>
+            
+            <div class="setting-item" v-if="answerMode !== 'kb_only'">
+              <div class="setting-label">
+                <label>创造性 (Temperature)</label>
+                <span class="setting-value">{{ temperature }}</span>
+              </div>
+              <el-slider 
+                v-model="temperature" 
+                :min="0" 
+                :max="1" 
+                :step="0.1"
+                show-input
+                :show-input-controls="false"
+                size="small"
+              />
+              <small class="setting-hint">
+                <el-icon><InfoFilled /></el-icon>
+                较低值更保守准确，较高值更有创意
+              </small>
+            </div>
+            
+            <div class="setting-item" v-if="answerMode !== 'llm_only'">
+              <div class="setting-label">
+                <label>检索数量</label>
+                <span class="setting-value">{{ contextSize }}</span>
+              </div>
+              <el-input-number 
+                v-model="contextSize" 
+                :min="1" 
+                :max="10" 
+                size="small"
+                controls-position="right"
+                style="width: 100%"
+              />
+              <small class="setting-hint">
+                <el-icon><InfoFilled /></el-icon>
+                从知识库检索的文档数量
+              </small>
+            </div>
           </div>
-          <div class="history-answer">
-            <strong>A: </strong>{{ item.answer.substring(0, 100) }}...
+        </el-popover>
+      </div>
+    </div>
+    
+    <!-- 对话区域 -->
+    <div class="chat-area">
+      <div class="chat-messages" ref="messagesContainer">
+        <!-- 欢迎消息 -->
+        <div v-if="chatHistory.length === 0" class="welcome-section">
+          <div class="welcome-card">
+            <div class="welcome-header">
+              <div class="welcome-avatar">
+                <div class="avatar-icon">🔧</div>
+              </div>
+              <div class="welcome-text">
+                <h3>你好！我是维修助手</h3>
+                <div class="current-mode">
+                  <span>当前模式：</span>
+                  <el-tag :type="getModeTagType(answerMode)" size="small">
+                    {{ getModeDisplayName(answerMode) }}
+                  </el-tag>
+                </div>
+              </div>
+            </div>
+            
+            <div class="welcome-content">
+              <p class="welcome-description">我可以帮你解决各种设备维修问题，提供专业的维修指导</p>
+              
+              <div class="example-questions-section">
+                <h4>💡 试试这些问题</h4>
+                <div class="example-questions">
+                  <div 
+                    v-for="q in quickQuestions" 
+                    :key="q"
+                    @click="askQuickQuestion(q)"
+                    class="example-question"
+                  >
+                    <el-icon><ChatDotRound /></el-icon>
+                    {{ q }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 对话历史 -->
+        <div v-for="(item, index) in chatHistory" :key="index" class="message-group">
+          <!-- 用户消息 -->
+          <div class="message user-message">
+            <div class="message-content user-content">
+              <div class="message-text">{{ item.question }}</div>
+            </div>
+            <div class="message-avatar user-avatar">
+              <div class="avatar-text">你</div>
+            </div>
+          </div>
+          
+          <!-- AI回复 -->
+          <div class="message ai-message">
+            <div class="message-avatar ai-avatar">
+              <div class="avatar-icon">🔧</div>
+            </div>
+            <div class="message-content ai-content">
+              <div class="message-text" v-html="formatAnswer(item.answer)"></div>
+              
+              <!-- 回答元信息 -->
+              <div class="message-actions">
+                <div class="message-meta">
+                  <div class="answer-info">
+                    <el-tag size="small" :type="getModeTagType(item.answer_mode)" effect="light">
+                      {{ getModeDisplayName(item.answer_mode) }}
+                    </el-tag>
+                    <el-tag v-if="item.model_used && item.answer_mode !== 'kb_only'" size="small" effect="plain">
+                      {{ item.model_used }}
+                    </el-tag>
+                    <span class="confidence" v-if="item.confidence">
+                      <el-icon><SuccessFilled /></el-icon>
+                      {{ Math.round(item.confidence * 100) }}%
+                    </span>
+                    <span class="processing-time" v-if="item.processing_time">
+                      {{ item.processing_time }}s
+                    </span>
+                  </div>
+                </div>
+                <div class="action-buttons">
+                  <el-button size="small" text @click="copyAnswer(item.answer)">
+                    <el-icon><DocumentCopy /></el-icon>
+                    复制
+                  </el-button>
+                  <el-button size="small" text @click="regenerateAnswer(item.question)">
+                    <el-icon><Refresh /></el-icon>
+                    重新生成
+                  </el-button>
+                  <el-rate 
+                    v-model="item.rating" 
+                    @change="submitRating(item, $event)"
+                    size="small"
+                    :colors="['#f7ba2a', '#f7ba2a', '#f7ba2a']"
+                    show-text
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 加载状态 -->
+        <div v-if="loading" class="message ai-message loading-message">
+          <div class="message-avatar ai-avatar">
+            <div class="avatar-icon loading-avatar">🔧</div>
+          </div>
+          <div class="message-content ai-content">
+            <div class="typing-indicator">
+              <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <p class="thinking-text">{{ getLoadingText() }}</p>
+            </div>
           </div>
         </div>
       </div>
-    </el-card>
+    </div>
+    
+    <!-- 底部输入区域 -->
+    <div class="input-area">
+      <div class="input-wrapper">
+        <div class="input-box">
+          <el-input
+            v-model="question"
+            placeholder="描述你遇到的问题，比如：iPhone电池如何更换？"
+            :disabled="loading"
+            @keyup.enter.exact="ask"
+            @keyup.ctrl.enter="addNewline"
+            class="chat-input-field"
+            type="textarea"
+            :autosize="{ minRows: 1, maxRows: 4 }"
+            resize="none"
+          />
+          <div class="input-actions">
+            <div class="input-hints">
+              <span class="hint-text">Enter 发送 • Ctrl+Enter 换行</span>
+            </div>
+            <el-button 
+              type="primary" 
+              @click="ask" 
+              :loading="loading"
+              :disabled="!question.trim()"
+              class="send-button"
+              circle
+            >
+              <el-icon><Promotion /></el-icon>
+            </el-button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 错误提示 -->
+      <transition name="slide-up">
+        <div v-if="error" class="error-message">
+          <el-alert 
+            :title="error" 
+            type="error" 
+            :closable="true" 
+            @close="error = ''"
+            show-icon
+          />
+        </div>
+      </transition>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { askQuestion } from '../services/api'
-import type { QAResponse } from '../services/api'
+import { ref, nextTick, onMounted } from 'vue'
+import { askQuestionV2, getKnowledgeStats, getAvailableModels } from '../services/api'
+import type { QAResponse, ModelInfo, QARequest } from '../services/api'
 
 const question = ref('')
-const answer = ref('')
-const sources = ref<string[]>([])
-const relatedQuestions = ref<string[]>([])
-const confidence = ref(0)
 const loading = ref(false)
 const error = ref('')
-const rating = ref(0)
+const messagesContainer = ref<HTMLElement>()
+
+// 回答模式
+const answerMode = ref<'auto' | 'llm_only' | 'kb_only'>('auto')
+
+// 模型相关
+const availableModels = ref<ModelInfo[]>([])
+const selectedModel = ref('gpt-3.5-turbo')
+const temperature = ref(0.7)
+const contextSize = ref(3)
+
 const chatHistory = ref<any[]>([])
+const knowledgeInfo = ref({
+  total_documents: 0,
+  total_tools: 0
+})
 
 const quickQuestions = ref([
-  '如何更换手机电池？',
-  '屏幕破裂怎么修复？',
-  '充电口坏了怎么办？',
-  '摄像头模糊如何处理？',
-  '扬声器没声音怎么修？'
+  '如何更换iPhone电池？',
+  '笔记本屏幕闪烁怎么办？',
+  '手机充电慢的原因？',
+  '电脑风扇噪音大如何处理？',
+  '显示器花屏如何修复？'
 ])
 
-function formatAnswer(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/📋|🔧|🛠️|⚠️|💡/g, '<span class="emoji">$&</span>')
-    .replace(/\n/g, '<br>')
+function getModeDisplayName(mode: string): string {
+  const modeMap = {
+    'auto': '智能模式',
+    'llm_only': '大模型模式', 
+    'kb_only': '知识库模式'
+  }
+  return modeMap[mode] || mode
 }
 
-function getConfidenceColor(conf: number): string {
-  if (conf > 0.7) return '#67c23a'
-  if (conf > 0.5) return '#e6a23c'
-  return '#f56c6c'
+function getModeTagType(mode: string): string {
+  const typeMap = {
+    'auto': 'primary',
+    'llm_only': 'success',
+    'kb_only': 'warning'
+  }
+  return typeMap[mode] || 'info'
+}
+
+function getLoadingText(): string {
+  const texts = {
+    'auto': '正在智能分析问题...',
+    'llm_only': `${selectedModel.value} 正在思考...`,
+    'kb_only': '正在检索知识库...'
+  }
+  return texts[answerMode.value] || '正在处理...'
+}
+
+function getSendButtonTooltip(): string {
+  return `使用${getModeDisplayName(answerMode.value)}回答`
+}
+
+function onAnswerModeChange(mode: string) {
+  console.log('切换回答模式:', mode)
+}
+
+function onModelChange(modelId: string) {
+  console.log('切换模型:', modelId)
 }
 
 async function ask() {
@@ -175,31 +381,52 @@ async function ask() {
   
   loading.value = true
   error.value = ''
-  answer.value = ''
-  sources.value = []
-  relatedQuestions.value = []
-  confidence.value = 0
+  
+  // 添加到对话历史
+  const newChat = {
+    question: question.value,
+    answer: '',
+    timestamp: new Date().toLocaleString(),
+    rating: 0,
+    model_used: selectedModel.value,
+    answer_mode: answerMode.value,
+    confidence: 0,
+    processing_time: 0
+  }
+  chatHistory.value.push(newChat)
+  
+  const currentQuestion = question.value
+  question.value = '' // 清空输入框
+  
+  // 滚动到底部
+  await nextTick()
+  scrollToBottom()
   
   try {
-    const response: QAResponse = await askQuestion(question.value)
-    answer.value = response.answer
-    sources.value = response.sources || []
-    relatedQuestions.value = response.related_questions || []
-    confidence.value = response.confidence || 0
+    const request: QARequest = {
+      query: currentQuestion,
+      answer_mode: answerMode.value,
+      model: selectedModel.value,
+      temperature: temperature.value,
+      context_size: contextSize.value
+    }
     
-    // 添加到对话历史
-    chatHistory.value.push({
-      question: question.value,
-      answer: response.answer,
-      timestamp: new Date().toLocaleString()
-    })
+    const response: QAResponse = await askQuestionV2(request)
     
-    // 清空输入
-    question.value = ''
+    newChat.answer = response.answer
+    newChat.model_used = response.model_used || selectedModel.value
+    newChat.answer_mode = response.answer_mode
+    newChat.confidence = response.confidence || 0
+    newChat.processing_time = response.processing_time || 0
+    
   } catch (err: any) {
     error.value = err.message || '请求失败，请检查后端服务是否正常运行'
+    // 移除失败的对话
+    chatHistory.value.pop()
   } finally {
     loading.value = false
+    await nextTick()
+    scrollToBottom()
   }
 }
 
@@ -213,7 +440,7 @@ function askRelatedQuestion(q: string) {
   ask()
 }
 
-function submitRating(rate: number) {
+function submitRating(item: any, rate: number) {
   console.log('用户评分:', rate)
   // 这里可以发送评分到后端
 }
@@ -222,151 +449,334 @@ function clearHistory() {
   chatHistory.value = []
 }
 
+async function loadKnowledgeInfo() {
+  try {
+    const stats = await getKnowledgeStats()
+    knowledgeInfo.value = {
+      total_documents: stats.total_documents || 0,
+      total_tools: stats.total_tools || 0
+    }
+  } catch (err) {
+    console.warn('获取知识库信息失败:', err)
+  }
+}
+
+async function loadAvailableModels() {
+  try {
+    const models = await getAvailableModels()
+    availableModels.value = models
+  } catch (err) {
+    console.warn('获取可用模型失败:', err)
+  }
+}
+
 onMounted(() => {
-  // 加载对话历史
-  // 可以从后端API获取
+  loadAvailableModels()
+  loadKnowledgeInfo()
 })
+
+function copyAnswer(answer: string) {
+  navigator.clipboard.writeText(answer).then(() => {
+    ElMessage.success('已复制到剪贴板')
+  })
+}
+
+function regenerateAnswer(question: string) {
+  this.question = question
+  ask()
+}
+
+function addNewline() {
+  question.value += '\n'
+}
+
+function scrollToBottom() {
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+  }
+}
+
+function formatAnswer(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/📋|🔧|🛠️|⚠️|💡/g, '<span class="emoji">$&</span>')
+    .replace(/\n/g, '<br>')
+}
 </script>
 
 <style scoped>
 .qa-container {
   display: flex;
-  justify-content: center;
-  padding: 20px;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f5f1eb 0%, #e8dcc0 100%);
+  flex-direction: column;
+  height: 100vh;
+  background: #ffffff;
 }
 
-.qa-main-card {
-  width: 100%;
-  max-width: 800px;
-  border-radius: 15px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-}
-
-.subtitle {
-  color: #8b7355;
-  margin-bottom: 30px;
-  text-align: center;
-}
-
-.quick-questions {
-  margin-bottom: 30px;
-  padding: 20px;
-  background: #faf8f4;
-  border-radius: 10px;
-}
-
-.question-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.quick-tag {
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.quick-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.qa-input-section {
-  margin-bottom: 20px;
-}
-
-.answer-card {
-  margin-bottom: 20px;
-}
-
-.answer-header {
+/* 顶部工具栏 */
+.qa-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 16px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.answer-content {
-  line-height: 1.8;
-  font-size: 16px;
+.header-left h2 {
+  margin: 0 0 8px 0;
+  color: #8b7355;
+  font-size: 20px;
+  font-weight: 600;
 }
 
-.answer-content .emoji {
-  font-size: 1.2em;
-  margin-right: 5px;
+.header-stats {
+  display: flex;
+  gap: 8px;
 }
 
-.confidence-bar {
+.header-right {
   display: flex;
   align-items: center;
-  margin-top: 15px;
-  font-size: 14px;
-  color: #666;
+  gap: 20px;
 }
 
-.sources-card, .related-card {
-  margin-bottom: 20px;
-}
-
-.sources-list {
-  list-style: none;
-  padding: 0;
-}
-
-.sources-list li {
-  margin-bottom: 8px;
-}
-
-.related-questions {
+.control-group {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
-.related-tag {
-  cursor: pointer;
-  transition: all 0.3s;
+.control-label {
+  font-size: 12px;
+  color: #8b7355;
+  margin-bottom: 4px;
+  font-weight: 500;
 }
 
-.related-tag:hover {
-  transform: scale(1.05);
+.control-select {
+  width: 160px;
 }
 
-.chat-history {
-  margin-top: 30px;
+.settings-btn {
+  background: rgba(139, 115, 85, 0.1);
+  border-color: rgba(139, 115, 85, 0.2);
+  color: #8b7355;
 }
 
-.history-item {
-  margin-bottom: 15px;
-  padding: 15px;
-  background: #f9f9f9;
-  border-radius: 8px;
-  border-left: 4px solid #8B7355;
+.settings-btn:hover {
+  background: rgba(139, 115, 85, 0.2);
+  transform: rotate(90deg);
 }
 
-.history-question {
-  margin-bottom: 8px;
-  color: #333;
+/* 对话区域 */
+.chat-area {
+  flex: 1;
+  overflow: hidden;
+  background: #f8f9fa;
 }
 
-.history-answer {
-  color: #666;
+.chat-messages {
+  height: 100%;
+  padding: 24px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* 欢迎区域 */
+.welcome-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 500px;
+}
+
+.welcome-card {
+  background: white;
+  padding: 48px;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(139, 115, 85, 0.12);
+  border: 1px solid #e4d4c8;
+  max-width: 800px;
+  width: 100%;
+  text-align: center;
+}
+
+/* 消息样式 */
+.message-group {
+  margin-bottom: 32px;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.message {
+  display: flex;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.user-message {
+  flex-direction: row-reverse;
+}
+
+.message-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   font-size: 14px;
+  font-weight: 600;
 }
 
-.wood-btn {
-  background: linear-gradient(135deg, #8B7355 0%, #A0845C 100%);
+.user-avatar {
+  background: linear-gradient(135deg, #b08968, #a0845c);
+  color: white;
+}
+
+.ai-avatar {
+  background: linear-gradient(135deg, #8b7355, #a0845c);
+  color: white;
+}
+
+.message-content {
+  flex: 1;
+  max-width: calc(100% - 120px);
+}
+
+.user-content {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.message-text {
+  padding: 16px 20px;
+  border-radius: 16px;
+  line-height: 1.6;
+  font-size: 15px;
+  word-wrap: break-word;
+}
+
+.user-message .message-text {
+  background: linear-gradient(135deg, #b08968, #a0845c);
+  color: white;
+  border-bottom-right-radius: 6px;
+  margin-left: auto;
+  max-width: 80%;
+}
+
+.ai-message .message-text {
+  background: white;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* 底部输入区域 */
+.input-area {
+  padding: 20px 24px;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+}
+
+.input-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.input-box {
+  position: relative;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.input-box:focus-within {
+  border-color: #8b7355;
+  box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.1);
+}
+
+.chat-input-field {
   border: none;
-  border-radius: 25px;
-  padding: 12px 30px;
-  font-weight: bold;
-  transition: all 0.3s;
+  padding: 16px 20px;
 }
 
-.wood-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(139, 115, 85, 0.4);
+.chat-input-field :deep(.el-textarea__inner) {
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
 }
+
+.input-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #f8f9fa;
+  border-top: 1px solid #f3f4f6;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.send-button {
+  background: linear-gradient(135deg, #8b7355, #a0845c);
+  border: none;
+  width: 36px;
+  height: 36px;
+}
+
+.send-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(139, 115, 85, 0.3);
+}
+
+.error-message {
+  margin-top: 12px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .qa-header {
+    padding: 12px 16px;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  
+  .chat-messages {
+    padding: 16px;
+  }
+  
+  .input-area {
+    padding: 16px;
+  }
+  
+  .welcome-card {
+    padding: 32px 24px;
+  }
+  
+  .message-content {
+    max-width: calc(100% - 60px);
+  }
+}
+
+/* 其他样式保持不变 */
+/* ...existing code... */
 </style>
