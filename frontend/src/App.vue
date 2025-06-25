@@ -14,7 +14,9 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
-  color: #2c3e50;
+  color: #5c4033;
+  background-color: #e4d4c8;
   margin-top: 60px;
+  padding: 20px;
 }
 </style>

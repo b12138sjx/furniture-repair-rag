@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File
-from .server import get_rag_chain
+from .rag_chain_helper import get_rag_chain
 import os
 
 router = APIRouter()
