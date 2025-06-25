@@ -1,22 +1,36 @@
-<template>
-  <div id="app">
-    <router-view></router-view>
-  </div>
-</template>
-
-<script setup>
-// 可根据需要添加逻辑
+<script setup lang="ts">
+import { useRoute } from 'vue-router'
+const route = useRoute()
 </script>
 
-<style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #5c4033;
-  background-color: #e4d4c8;
-  margin-top: 60px;
-  padding: 20px;
+<template>
+  <el-container style="height: 100vh;">
+    <el-aside width="200px">
+      <el-menu :default-active="route.path" router>
+        <el-menu-item index="/">首页</el-menu-item>
+        <el-menu-item index="/collect">数据采集</el-menu-item>
+        <el-menu-item index="/kb">知识库管理</el-menu-item>
+        <el-menu-item index="/qa">智能问答</el-menu-item>
+        <el-menu-item index="/finetune">模型微调</el-menu-item>
+      </el-menu>
+    </el-aside>
+    <el-main>
+      <router-view />
+    </el-main>
+  </el-container>
+</template>
+
+<style scoped>
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.vue:hover {
+  filter: drop-shadow(0 0 2em #42b883aa);
 }
 </style>
